@@ -129,9 +129,13 @@ public:
   void deallocate( void * const arg_alloc_ptr 
                  , const size_t arg_alloc_size ) const ;
 
+  static constexpr const char* name() { return m_name; }
+
 private:
 
   friend class Kokkos::Impl::SharedAllocationRecord< Kokkos::Experimental::OpenMPTargetSpace , void > ;
+
+  static constexpr const char* m_name = "OpenMPTarget";
 };
 } // namespace Experimental
 } // namespace Kokkos

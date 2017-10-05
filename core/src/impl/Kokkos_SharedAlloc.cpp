@@ -48,7 +48,11 @@ namespace Impl {
 
 namespace {
 
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+int t_tracking_enabled = 1;
+#else
 __thread int t_tracking_enabled = 1;
+#endif
 
 }
 

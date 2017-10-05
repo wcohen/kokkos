@@ -41,6 +41,6 @@
 //@HEADER
 */
 
-#include <openmptarget/TestOpenMPTarget_Category.hpp>
-#include <TestViewMapping_subview.hpp>
+//#include <openmptarget/TestOpenMPTarget_Category.hpp>
+//#include <TestViewMapping_subview.hpp>
 

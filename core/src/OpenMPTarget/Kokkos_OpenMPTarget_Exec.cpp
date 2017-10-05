@@ -60,13 +60,11 @@ namespace {
 KOKKOS_INLINE_FUNCTION
 int kokkos_omp_in_parallel();
 
-int kokkos_omp_in_critical_region = ( Kokkos::HostSpace::register_in_parallel( kokkos_omp_in_parallel ) , 0 );
-
 KOKKOS_INLINE_FUNCTION
 int kokkos_omp_in_parallel()
 {
 #ifndef __CUDA_ARCH__
-  return omp_in_parallel() && ! kokkos_omp_in_critical_region ;
+  return omp_in_parallel();
 #else
   return 0;
 #endif
