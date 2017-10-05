@@ -699,8 +699,10 @@ bool test_scalar( int nteams, int team_size, int test ) {
   Kokkos::deep_copy( d_flag, h_flag );
 
   if ( test == 0 ) {
+    #ifndef KOKKOS_ENABLE_OPENMPTARGET
     Kokkos::parallel_for( std::string( "A" ), Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
                           functor_vec_red< Scalar, ExecutionSpace >( d_flag ) );
+    #endif
   }
   else if ( test == 1 ) {
     #if defined(KOKKOS_ENABLE_CUDA)
@@ -708,12 +710,16 @@ bool test_scalar( int nteams, int team_size, int test ) {
     if(!std::is_same<ExecutionSpace,Kokkos::Cuda>::value)
     #endif
     #endif
+    #ifndef KOKKOS_ENABLE_OPENMPTARGET
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
                           functor_vec_red_reducer< Scalar, ExecutionSpace >( d_flag ) );
+    #endif
   }
   else if ( test == 2 ) {
+    #ifndef KOKKOS_ENABLE_OPENMPTARGET
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
                           functor_vec_scan< Scalar, ExecutionSpace >( d_flag ) );
+    #endif
   }
   else if ( test == 3 ) {
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
@@ -732,20 +738,26 @@ bool test_scalar( int nteams, int team_size, int test ) {
                           functor_team_reduce< Scalar, ExecutionSpace >( d_flag ) );
   }
   else if ( test == 7 ) {
+    #ifndef KOKKOS_ENABLE_OPENMPTARGET
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size ),
                           functor_team_reduce_reducer< Scalar, ExecutionSpace >( d_flag ) );
+    #endif
   }
   else if ( test == 8 ) {
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
                           functor_team_vector_for< Scalar, ExecutionSpace >( d_flag ) );
   }
   else if ( test == 9 ) {
+    #ifndef KOKKOS_ENABLE_OPENMPTARGET
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
                           functor_team_vector_reduce< Scalar, ExecutionSpace >( d_flag ) );
+    #endif
   }
   else if ( test == 10 ) {
+    #ifndef KOKKOS_ENABLE_OPENMPTARGET
     Kokkos::parallel_for( Kokkos::TeamPolicy< ExecutionSpace >( nteams, team_size, 8 ),
                           functor_team_vector_reduce_reducer< Scalar, ExecutionSpace >( d_flag ) );
+    #endif
   }
 
   Kokkos::deep_copy( h_flag, d_flag );

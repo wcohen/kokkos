@@ -58,11 +58,12 @@ struct TestTeamPolicy {
   typedef Kokkos::View< int**, ExecSpace > view_type;
 
   view_type m_flags;
+  int league_size;
 
-  TestTeamPolicy( const size_t league_size )
+  TestTeamPolicy( const size_t league_size_ )
     : m_flags( Kokkos::ViewAllocateWithoutInitializing( "flags" ),
                Kokkos::TeamPolicy< ScheduleType,  ExecSpace >::team_size_max( *this ),
-               league_size ) {}
+               league_size_ ),league_size(league_size_) {}
 
   struct VerifyInitTag {};
 
@@ -87,7 +88,7 @@ struct TestTeamPolicy {
   }
 
   // Included for test_small_league_size.
-  TestTeamPolicy() : m_flags() {}
+  TestTeamPolicy() : m_flags(),league_size(0) {}
 
   // Included for test_small_league_size.
   struct NoOpTag {};
@@ -96,7 +97,7 @@ struct TestTeamPolicy {
   void operator()( const NoOpTag &, const team_member & member ) const {}
 
 
-  static void test_small_league_size() {
+  void test_small_league_size() {
     int bs = 8; // batch size (number of elements per batch)
     int ns = 16; // total number of "problems" to process
 
@@ -107,17 +108,15 @@ struct TestTeamPolicy {
     const Kokkos::TeamPolicy< ExecSpace, NoOpTag > policy( num_teams, Kokkos::AUTO() );
 
     Kokkos::parallel_for( policy.set_scratch_size( level, Kokkos::PerTeam( mem_size ), Kokkos::PerThread( 0 ) ),
-                          TestTeamPolicy() );
+                          *this );
   }
 
-  static void test_for( const size_t league_size )
+  void test_for()
   {
-    TestTeamPolicy functor( league_size );
+    const int team_size = Kokkos::TeamPolicy< ScheduleType,  ExecSpace >::team_size_max( *this );
 
-    const int team_size = Kokkos::TeamPolicy< ScheduleType,  ExecSpace >::team_size_max( functor );
-
-    Kokkos::parallel_for( Kokkos::TeamPolicy< ScheduleType,  ExecSpace >( league_size, team_size ), functor );
-    Kokkos::parallel_for( Kokkos::TeamPolicy< ScheduleType,  ExecSpace, VerifyInitTag >( league_size, team_size ), functor );
+    Kokkos::parallel_for( Kokkos::TeamPolicy< ScheduleType,  ExecSpace >( league_size, team_size ), *this );
+    Kokkos::parallel_for( Kokkos::TeamPolicy< ScheduleType,  ExecSpace, VerifyInitTag >( league_size, team_size ), *this );
 
     test_small_league_size();
   }
@@ -138,19 +137,18 @@ struct TestTeamPolicy {
     update += 1 + member.team_rank() + member.team_size() * member.league_rank();
   }
 
-  static void test_reduce( const size_t league_size )
+  void test_reduce()
   {
-    TestTeamPolicy functor( league_size );
 
-    const int team_size = Kokkos::TeamPolicy< ScheduleType,  ExecSpace >::team_size_max( functor );
+    const int team_size = Kokkos::TeamPolicy< ScheduleType,  ExecSpace >::team_size_max( *this );
     const long N = team_size * league_size;
 
     long total = 0;
 
-    Kokkos::parallel_reduce( Kokkos::TeamPolicy< ScheduleType, ExecSpace >( league_size, team_size ), functor, total );
+    Kokkos::parallel_reduce( Kokkos::TeamPolicy< ScheduleType, ExecSpace >( league_size, team_size ), *this, total );
     ASSERT_EQ( size_t( ( N - 1 ) * ( N ) ) / 2, size_t( total ) );
 
-    Kokkos::parallel_reduce( Kokkos::TeamPolicy< ScheduleType, ExecSpace, ReduceTag >( league_size, team_size ), functor, total );
+    Kokkos::parallel_reduce( Kokkos::TeamPolicy< ScheduleType, ExecSpace, ReduceTag >( league_size, team_size ), *this, total );
     ASSERT_EQ( ( size_t( N ) * size_t( N + 1 ) ) / 2, size_t( total ) );
   }
 };

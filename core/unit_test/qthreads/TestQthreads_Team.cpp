@@ -44,26 +44,32 @@
 #include <qthreads/TestQthreads.hpp>
 
 namespace Test {
-
-TEST_F( qthreads, team_tag )
-{
 #if 0
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Static> >::test_for( 0 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Static> >::test_reduce( 0 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Dynamic> >::test_for( 0 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Dynamic> >::test_reduce( 0 );
+TEST_F( TEST_CATEGORY, team_for )
+{
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> > f(0); f.test_for();}
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> > f(0); f.test_for();}
 
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Static> >::test_for( 2 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Static> >::test_reduce( 2 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Dynamic> >::test_for( 2 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Dynamic> >::test_reduce( 2 );
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> > f(2); f.test_for();}
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> > f(2); f.test_for();}
 
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Static> >::test_for( 1000 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Static> >::test_reduce( 1000 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Dynamic> >::test_for( 1000 );
-  TestTeamPolicy< Kokkos::Qthreads, Kokkos::Schedule<Kokkos::Dynamic> >::test_reduce( 1000 );
-#endif
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> > f(1000); f.test_for();}
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> > f(1000); f.test_for();}
 }
+
+
+TEST_F( TEST_CATEGORY, team_reduce )
+{
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> > f(0); f.test_reduce();}
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> > f(0); f.test_reduce();}
+  
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> > f(2); f.test_reduce();}
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> > f(2); f.test_reduce();}
+  
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Static> > f(1000); f.test_reduce();}
+  {TestTeamPolicy< TEST_EXECSPACE, Kokkos::Schedule<Kokkos::Dynamic> > f(1000); f.test_reduce();}
+}
+#endif
 
 TEST_F( qthreads, team_shared_request )
 {

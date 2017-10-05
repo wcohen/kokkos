@@ -88,6 +88,8 @@ public:
       OpenMPTargetExec::verify_initialized("Kokkos::Experimental::OpenMPTarget parallel_for");
       const typename Policy::member_type begin = m_policy.begin();
       const typename Policy::member_type end = m_policy.end();
+
+      if(begin>=end) return;
       
       #pragma omp target teams distribute parallel for map(to:this->m_functor)
       for(int i=begin; i<end; i++)
@@ -104,6 +106,8 @@ public:
       OpenMPTargetExec::verify_initialized("Kokkos::Experimental::OpenMPTarget parallel_for");
       const typename Policy::member_type begin = m_policy.begin();
       const typename Policy::member_type end = m_policy.end();
+
+      if(begin>=end) return;
 
       #pragma omp target teams distribute parallel for num_threads(128) map(to:this->m_functor)
       for(int i=begin; i<end; i++)
@@ -148,6 +152,9 @@ struct ParallelReduceSpecialize<FunctorType, Kokkos::RangePolicy<PolicyArgs...>,
       const typename PolicyType::member_type end = p.end();
       
       ValueType result = ValueType();
+
+      if(begin>=end) { *result_ptr=result; return; }
+
       #pragma omp target teams distribute parallel for num_teams(512) map(to:f) map(tofrom:result) reduction(+: result)
       for(int i=begin; i<end; i++)
         f(i,result);
@@ -167,6 +174,9 @@ struct ParallelReduceSpecialize<FunctorType, Kokkos::RangePolicy<PolicyArgs...>,
       const typename PolicyType::member_type end = p.end();
 
       ValueType result = ValueType();
+
+      if(begin>=end) { *result_ptr=result; return; }
+
       #pragma omp target teams distribute parallel for num_teams(512) map(to:f) map(tofrom: result) reduction(+: result)
       for(int i=begin; i<end; i++)
         f(TagType(),i,result);
@@ -491,6 +501,8 @@ private:
       const int vector_length = m_policy.vector_length();
       const int nteams = OpenMPTargetExec::MAX_ACTIVE_TEAMS<league_size?OpenMPTargetExec::MAX_ACTIVE_TEAMS:league_size;
 
+      if(league_size <= 0 || team_size <= 0) return;
+
       OpenMPTargetExec::resize_scratch(0,Policy::member_type::TEAM_REDUCE_SIZE,0,0);
       void* scratch_ptr = OpenMPTargetExec::get_scratch_ptr();
 
@@ -514,6 +526,8 @@ private:
       const int team_size = m_policy.team_size();
       const int vector_length = m_policy.vector_length();
       const int nteams = OpenMPTargetExec::MAX_ACTIVE_TEAMS<league_size?OpenMPTargetExec::MAX_ACTIVE_TEAMS:league_size;
+
+      if(league_size <= 0 || team_size <= 0) return;
 
       OpenMPTargetExec::resize_scratch(0,Policy::member_type::TEAM_REDUCE_SIZE,0,0);
       void* scratch_ptr = OpenMPTargetExec::get_scratch_ptr();
@@ -557,6 +571,9 @@ struct ParallelReduceSpecialize<FunctorType, TeamPolicyInternal<PolicyArgs...>, 
       void* scratch_ptr = OpenMPTargetExec::get_scratch_ptr(); 
 
       ValueType result = ValueType();
+
+      if(league_size <= 0 || team_size <= 0) { *result_ptr=result; return; }
+
       #pragma omp target teams distribute parallel for num_teams(nteams) num_threads(team_size*vector_length) \
          map(to:f,scratch_ptr) map(tofrom:result) reduction(+: result) schedule(static,1)
       for(int i=0 ; i<league_size*team_size*vector_length ; i++) {
@@ -586,12 +603,15 @@ struct ParallelReduceSpecialize<FunctorType, TeamPolicyInternal<PolicyArgs...>, 
       void* scratch_ptr = OpenMPTargetExec::get_scratch_ptr();
 
       ValueType result = ValueType();
+
+      if(league_size <= 0 || team_size <= 0) { *result_ptr=result; return; }
+
       #pragma omp target teams distribute parallel for num_teams(nteams) num_threads(team_size*vector_length) \
          map(to:f,scratch_ptr) map(tofrom:result) reduction(+: result) schedule(static,1)
       for(int i=0 ; i<league_size*team_size*vector_length ; i++) {
         typename PolicyType::member_type team(i/(team_size*vector_length),league_size,team_size,vector_length, scratch_ptr, 0,0);
         f(TagType(),team,result);
-        if(team.vector_lane!=0) result = 0;
+        if(team.m_vector_lane!=0) result = 0;
       }
       *result_ptr=result;
     }
@@ -694,17 +714,21 @@ namespace Impl {
     const iType end;
     const iType increment;
 
+    const OpenMPTargetExecTeamMember& thread;
+
     inline
     TeamThreadRangeBoundariesStruct (const OpenMPTargetExecTeamMember& thread_, const iType& count):
       start( thread_.team_rank() ),
       end( count ),
-      increment( thread_.team_size() )
+      increment( thread_.team_size() ),
+      thread( thread_ )
     {}
     inline
     TeamThreadRangeBoundariesStruct (const OpenMPTargetExecTeamMember& thread_, const iType& begin_, const iType& end_):
       start( begin_+thread_.team_rank() ),
       end( end_ ),
-      increment( thread_.team_size() )
+      increment( thread_.team_size() ),
+      thread( thread_ )
     {}
   };
 

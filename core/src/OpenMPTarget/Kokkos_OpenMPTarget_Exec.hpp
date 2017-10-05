@@ -581,7 +581,7 @@ void parallel_reduce(const Impl::TeamThreadRangeBoundariesStruct<iType,Impl::Ope
     result+=tmp;
   }
 
-  //result = loop_boundaries.thread.team_reduce(result,Impl::JoinAdd<ValueType>());
+  result = loop_boundaries.thread.team_reduce(result,Impl::JoinAdd<ValueType>());
 }
 
 /** \brief  Intra-thread vector parallel_reduce. Executes lambda(iType i, ValueType & val) for each i=0..N-1.
@@ -604,7 +604,7 @@ void parallel_reduce(const Impl::TeamThreadRangeBoundariesStruct<iType,Impl::Ope
     join(result,tmp);
   }
 
-  //init_result = loop_boundaries.thread.team_reduce(result,join);
+  init_result = loop_boundaries.thread.team_reduce(result,join);
 }
 
 } //namespace Kokkos

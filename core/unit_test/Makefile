@@ -210,7 +210,7 @@ ifeq ($(KOKKOS_INTERNAL_USE_OPENMPTARGET), 1)
 	OBJ_OPENMPTARGET += TestOpenMPTarget_AtomicOperations.o 
         OBJ_OPENMPTARGET += TestOpenMPTarget_AtomicViews.o 
         OBJ_OPENMPTARGET += TestOpenMPTarget_Atomics.o # Commented Out Arbitrary Type Atomics
-	#OBJ_OPENMPTARGET += TestOpenMPTarget_Team.o # There is still a static function in this
+	OBJ_OPENMPTARGET += TestOpenMPTarget_Team.o # Commented out TeamVector tests
         #OBJ_OPENMPTARGET += TestOpenMPTarget_TeamScratch.o
 	#OBJ_OPENMPTARGET += TestOpenMPTarget_TeamReductionScan.o
 	#OBJ_OPENMPTARGET += TestOpenMPTarget_Other.o
@@ -253,7 +253,7 @@ ifeq ($(KOKKOS_INTERNAL_USE_SERIAL), 1)
         OBJ_SERIAL += TestSerial_ViewMapping_a.o TestSerial_ViewMapping_b.o TestSerial_ViewMapping_subview.o
         OBJ_SERIAL += TestSerial_ViewOfClass.o
 ifeq ($(KOKKOS_INTERNAL_COMPILER_XL), 1)
-	    OBJ_SERIAL += TestSerial_SubView_c_all.o
+	#OBJ_SERIAL += TestSerial_SubView_c_all.o // Doesn't really finish to compile ...
 else
         OBJ_SERIAL += TestSerial_SubView_a.o TestSerial_SubView_b.o
         OBJ_SERIAL += TestSerial_SubView_c01.o TestSerial_SubView_c02.o TestSerial_SubView_c03.o
