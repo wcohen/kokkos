@@ -805,15 +805,57 @@ bool test_scalar( int nteams, int team_size, int test ) {
   return ( h_flag() == 0 );
 }
 
+template< typename Scalar, class ExecutionSpace >
+int test_scalar_team_size_max() {
+  using Policy = Kokkos::TeamPolicy<ExecutionSpace>;
+  using Flag = Kokkos::View<int, Kokkos::LayoutLeft, ExecutionSpace>;
+  Flag flag;
+  using T0 = functor_vec_red<Scalar, ExecutionSpace>;
+  int max = Policy::team_size_max(T0(flag));
+  using T1 = functor_vec_red_reducer<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T1(flag)));
+  using T2 = functor_vec_scan<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T2(flag)));
+  using T3 = functor_vec_for<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T3(flag)));
+  using T4 = functor_vec_single<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T4(flag)));
+  using T5 = functor_team_for<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T5(flag)));
+  using T6 = functor_team_reduce<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T6(flag)));
+  using T7 = functor_team_reduce_reducer<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T7(flag)));
+  using T8 = functor_team_vector_for<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T8(flag)));
+  using T9 = functor_team_vector_reduce<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T9(flag)));
+  using T10 = functor_team_vector_reduce_reducer<Scalar, ExecutionSpace>;
+  max = std::min(max, Policy::team_size_max(T10(flag)));
+  return max;
+}
+
+template< class ExecutionSpace >
+int test_team_size_max() {
+  int max = test_scalar_team_size_max< int, ExecutionSpace >();
+  max = std::min(max, test_scalar_team_size_max< long long int, ExecutionSpace >());
+  max = std::min(max, test_scalar_team_size_max< float, ExecutionSpace >());
+  max = std::min(max, test_scalar_team_size_max< double, ExecutionSpace >());
+  max = std::min(max, test_scalar_team_size_max< my_complex, ExecutionSpace >());
+  return max;
+}
+
 template< class ExecutionSpace >
 bool Test( int test ) {
   bool passed = true;
 
-  passed = passed && test_scalar< int, ExecutionSpace >( 317, 33, test );
-  passed = passed && test_scalar< long long int, ExecutionSpace >( 317, 33, test );
-  passed = passed && test_scalar< float, ExecutionSpace >( 317, 33, test );
-  passed = passed && test_scalar< double, ExecutionSpace >( 317, 33, test );
-  passed = passed && test_scalar< my_complex, ExecutionSpace >( 317, 33, test );
+  int team_size = std::min(33, test_team_size_max<ExecutionSpace>());
+
+  passed = passed && test_scalar< int, ExecutionSpace >( 317, team_size, test );
+  passed = passed && test_scalar< long long int, ExecutionSpace >( 317, team_size, test );
+  passed = passed && test_scalar< float, ExecutionSpace >( 317, team_size, test );
+  passed = passed && test_scalar< double, ExecutionSpace >( 317, team_size, test );
+  passed = passed && test_scalar< my_complex, ExecutionSpace >( 317, team_size, test );
 
   return passed;
 }
@@ -835,13 +877,13 @@ public:
   typedef typename execution_space::size_type size_type;
 
   TestTripleNestedReduce( const size_type & nrows, const size_type & ncols
-                        , const size_type & team_size, const size_type & vector_length )
+                        , const int & team_size, const size_type & vector_length )
   {
     run_test( nrows, ncols, team_size, vector_length );
   }
 
   void run_test( const size_type & nrows, const size_type & ncols
-               , const size_type & team_size, const size_type & vector_length )
+               , const int & team_size, const size_type & vector_length )
   {
     //typedef Kokkos::LayoutLeft Layout;
     typedef Kokkos::LayoutRight Layout;
@@ -854,6 +896,26 @@ public:
     ViewMatrix A( "A", nrows, ncols );
 
     typedef Kokkos::RangePolicy<DeviceType> range_policy;
+    typedef Kokkos::TeamPolicy< DeviceType >                        team_policy;
+    typedef typename Kokkos::TeamPolicy< DeviceType >::member_type  member_type;
+
+    int chunk_size = 128;
+
+    auto triple_lambda = KOKKOS_LAMBDA ( const member_type & teamMember, double & update ) {
+      const int row_start = teamMember.league_rank() * chunk_size;
+      const int row_end   = row_start + chunk_size;
+      Kokkos::parallel_for( Kokkos::TeamThreadRange( teamMember, row_start, row_end ), [&] ( const int i ) {
+        ScalarType sum_i = 0.0;
+        Kokkos::parallel_reduce( Kokkos::ThreadVectorRange( teamMember, ncols ), [&] ( const int j, ScalarType &innerUpdate ) {
+          innerUpdate += A( i, j ) * x( j );
+        }, sum_i );
+        Kokkos::single( Kokkos::PerThread( teamMember ), [&] () {
+          update += y( i ) * sum_i;
+        } );
+      } );
+    };
+
+    if (team_size > team_policy::team_size_max(triple_lambda)) return;
 
     // Initialize y vector.
     Kokkos::parallel_for( range_policy( 0, nrows ), KOKKOS_LAMBDA ( const int i ) { y( i ) = 1; } );
@@ -861,9 +923,6 @@ public:
     // Initialize x vector.
     Kokkos::parallel_for( range_policy( 0, ncols ), KOKKOS_LAMBDA ( const int i ) { x( i ) = 1; } );
     Kokkos::fence();
-
-    typedef Kokkos::TeamPolicy< DeviceType >                        team_policy;
-    typedef typename Kokkos::TeamPolicy< DeviceType >::member_type  member_type;
 
     // Initialize A matrix, note 2D indexing computation.
     Kokkos::parallel_for( team_policy( nrows, Kokkos::AUTO ), KOKKOS_LAMBDA ( const member_type & teamMember ) {
@@ -876,21 +935,8 @@ public:
 
     // Three level parallelism kernel to force caching of vector x.
     ScalarType result = 0.0;
-    int chunk_size = 128;
     Kokkos::parallel_reduce( team_policy( nrows / chunk_size, team_size, vector_length ),
-                             KOKKOS_LAMBDA ( const member_type & teamMember, double & update ) {
-      const int row_start = teamMember.league_rank() * chunk_size;
-      const int row_end   = row_start + chunk_size;
-      Kokkos::parallel_for( Kokkos::TeamThreadRange( teamMember, row_start, row_end ), [&] ( const int i ) {
-        ScalarType sum_i = 0.0;
-        Kokkos::parallel_reduce( Kokkos::ThreadVectorRange( teamMember, ncols ), [&] ( const int j, ScalarType &innerUpdate ) {
-          innerUpdate += A( i, j ) * x( j );
-        }, sum_i );
-        Kokkos::single( Kokkos::PerThread( teamMember ), [&] () {
-          update += y( i ) * sum_i;
-        } );
-      } );
-    }, result );
+                             triple_lambda, result );
     Kokkos::fence();
 
     const ScalarType solution = (ScalarType) nrows * (ScalarType) ncols;
@@ -946,31 +992,12 @@ TEST_F( TEST_CATEGORY, team_vector )
 #if !defined(KOKKOS_IMPL_CUDA_CLANG_WORKAROUND)
 TEST_F( TEST_CATEGORY, triple_nested_parallelism )
 {
-// With KOKKOS_DEBUG enabled, the functor uses too many registers to run
-// with a team size of 32 on GPUs, 16 is the max possible (at least on a K80 GPU)
-// See https://github.com/kokkos/kokkos/issues/1513
-#if defined(KOKKOS_DEBUG) && defined(KOKKOS_ENABLE_CUDA)
-  if (!std::is_same<TEST_EXECSPACE, Kokkos::Cuda>::value) {
-#endif
-#ifdef KOKKOS_ENABLE_ROCM // ROCm doesn't support TeamSize 32x32
-  if (!std::is_same<TEST_EXECSPACE, Kokkos::Experimental::ROCm>::value) {
-#endif
   TestTripleNestedReduce< double, TEST_EXECSPACE >( 8192, 2048, 32, 32 );
-#ifdef KOKKOS_ENABLE_ROCM
-  }
-#endif
   TestTripleNestedReduce< double, TEST_EXECSPACE >( 8192, 2048, 32, 16 );
-#if defined(KOKKOS_DEBUG) && defined(KOKKOS_ENABLE_CUDA)
-  }
-#endif
   TestTripleNestedReduce< double, TEST_EXECSPACE >( 8192, 2048, 16, 16 );
-#ifdef KOKKOS_ENABLE_ROCM // ROCm doesn't support team sizes not powers of two
-  if (!std::is_same<TEST_EXECSPACE, Kokkos::Experimental::ROCm>::value) {
-#endif
   TestTripleNestedReduce< double, TEST_EXECSPACE >( 8192, 2048, 7, 16 );
-#ifdef KOKKOS_ENABLE_ROCM
-  }
-#endif
+  TestTripleNestedReduce< double, TEST_EXECSPACE >( 8192, 2048, 2, 16 );
+  TestTripleNestedReduce< double, TEST_EXECSPACE >( 8192, 2048, 1, 16 );
 }
 #endif
 

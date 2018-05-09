@@ -139,8 +139,20 @@ private:
 
       m_league_size = league_size_request ;
 
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
       m_team_size = team_size_request < team_max ?
                     team_size_request : team_max ;
+#else
+      if (team_size_request <= team_max) {
+        m_team_size = team_size_request;
+      } else {
+        std::string msg("OpenMP team size request ");
+        msg += std::to_string(team_size_request);
+        msg += " is too big, maximum is ";
+        msg += std::to_string(team_max);
+        Kokkos::Impl::throw_runtime_exception(msg);
+      }
+#endif
 
       // Round team size up to a multiple of 'team_gain'
       const int team_size_grain = team_grain * ( ( m_team_size + team_grain - 1 ) / team_grain );
