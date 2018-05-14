@@ -394,9 +394,9 @@ public:
                                  , update );
 
         } while ( is_dynamic && 0 <= range.first );
-      }
+      } // end parallel region
 
-      // Reduction:
+      // Reduction over threads:
 
       const pointer_type ptr = pointer_type( m_instance->get_thread_data(0)->pool_reduce_local() );
 
