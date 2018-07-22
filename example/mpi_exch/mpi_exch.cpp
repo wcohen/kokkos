@@ -103,7 +103,7 @@ void main2() {
   MPI_Dist_graph_neighbors(graph_comm, num_sources, sources.data(), MPI_UNWEIGHTED,
       num_destinations, destinations.data(), MPI_UNWEIGHTED);
   auto src_counts = std::vector<int>(std::size_t(num_sources));
-  MPI_Neighbor_alltoall(dest_counts.data(), num_destinations, MPI_INT, src_counts.data(), num_sources, MPI_INT,
+  MPI_Neighbor_alltoall(dest_counts.data(), 1, MPI_INT, src_counts.data(), 1, MPI_INT,
       graph_comm);
   // Step 3: set up metadata and buffer for incoming
   auto src_offsets = std::vector<int>(std::size_t(num_sources + 1));
@@ -122,7 +122,6 @@ void main2() {
   // Step 5: use MPI_Neighbor_alltoallv to exchange the data
   Kokkos::View<int*> msg_indices_by_src("indices by src", nrecvd);
   Kokkos::View<double*> msg_values_by_src("values by src", nrecvd);
-  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Neighbor_alltoallv(msg_values_by_dest.data(), dest_counts.data(), dest_offsets.data(),
       MPI_DOUBLE, msg_values_by_src.data(), src_counts.data(), src_offsets.data(), MPI_DOUBLE,
       graph_comm);
@@ -130,27 +129,12 @@ void main2() {
       MPI_INT, msg_indices_by_src.data(), src_counts.data(), src_offsets.data(), MPI_INT,
       graph_comm);
   MPI_Comm_free(&graph_comm);
-  std::printf("after graph comm free\n");
-  MPI_Barrier(MPI_COMM_WORLD);
   // Step 6: not part of communication, but take action based on the received "messages"
-  std::printf("before values zero\n");
   Kokkos::deep_copy(values, 0.0);
-  std::printf("before parallel_for\n");
-  Kokkos::parallel_for("add contributions", n, KOKKOS_LAMBDA(int i) {
+  Kokkos::parallel_for("add contributions", nrecvd, KOKKOS_LAMBDA(int i) {
       // note: consider using a ScatterView for this algorithm
-    //Kokkos::atomic_add(&values[msg_indices_by_src[i]], msg_values_by_src[i]);
-      assert(i >= 0);
-      if (!(i < msg_indices_by_src.size())) {
-        std::fprintf(stderr, "i %d >= msg_indices_by_src.size() %zu\n",
-            i, msg_indices_by_src.size());
-      }
-      assert(i < msg_indices_by_src.size());
-      assert(i < msg_values_by_src.size());
-      std::printf("rank %d i %d src idx %d src val %f\n",
-          mpi_rank, i, msg_indices_by_src[i], msg_values_by_src[i]);
+      Kokkos::atomic_add(&values[msg_indices_by_src[i]], msg_values_by_src[i]);
   });
-  std::printf("after contrib add\n");
-  MPI_Barrier(MPI_COMM_WORLD);
   // Step 7: copy values to the host and print so the user knows their algorithm worked okay
   auto host_values = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), values);
   std::stringstream ss;
@@ -162,7 +146,6 @@ void main2() {
   ss << "}";
   auto s = ss.str();
   std::printf("%s\n", s.c_str());
-  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 int main(int argc, char** argv) {
