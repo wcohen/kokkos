@@ -11,6 +11,8 @@ void extract_and_sort_ranks(
     std::vector<int>& unique_ranks,
     std::vector<int>& offsets,
     std::vector<int>& counts) {
+  int mpi_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   auto n = destination_ranks.extent(0);
   using ST = decltype(n);
   Kokkos::View<int*> tmp_ranks("tmp ranks", destination_ranks.extent(0));
@@ -32,7 +34,9 @@ void extract_and_sort_ranks(
     Kokkos::View<int> total("total");
     Kokkos::parallel_scan("process biggest rank items", n,
     KOKKOS_LAMBDA(ST i, int& index, const bool last_pass) {
-      if (last_pass) permutation(i) = index + offset;
+      if (last_pass && (tmp_ranks(i) == next_biggest_rank)) {
+        permutation(i) = index + offset;
+      }
       if (tmp_ranks(i) == next_biggest_rank) ++index;
       if (last_pass) {
         if (i + 1 == tmp_ranks.extent(0)) {
@@ -57,7 +61,7 @@ void main2() {
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   // this input describes a quadrilateral strip mesh where
   // every MPI rank owns one quadrilateral, and more importantly
-  // it owns the two nodes on the "left" of the quadrilateral.
+  // it owns the two nodes on the "left" of the quadrilateral (nodes 0 and 3).
   // the special case of the "rightmost" quadrilateral owns
   // all of its nodes.
   std::size_t n = 4;
