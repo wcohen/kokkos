@@ -46,6 +46,11 @@
 #if defined(KOKKOS_ENABLE_PROFILING)
 
 #include <impl/Kokkos_Profiling_Interface.hpp>
+#if defined(KOKKOS_ENABLE_SYSTEMTAP)
+#include "probes.h"
+#else
+#include "dummy_probes.h"
+#endif
 #include <cstring>
 
 namespace Kokkos {
@@ -86,59 +91,99 @@ bool profileLibraryLoaded() {
 }
 
 void beginParallelFor(const std::string& kernelPrefix, const uint32_t devID, uint64_t* kernelID) {
-  if(nullptr != beginForCallee) {
+  if(nullptr != beginForCallee || KOKKOS_BEGIN_PARALLEL_FOR_ENABLED()) {
     Kokkos::fence();
+  }
+  if(nullptr != beginForCallee) {
     (*beginForCallee)(kernelPrefix.c_str(), devID, kernelID);
+  }
+  if (KOKKOS_BEGIN_PARALLEL_FOR_ENABLED()) {
+    KOKKOS_BEGIN_PARALLEL_FOR(kernelPrefix.c_str(), devID, kernelID);
   }
 }
 
 void endParallelFor(const uint64_t kernelID) {
-  if(nullptr != endForCallee) {
+  if(nullptr != endForCallee || KOKKOS_END_PARALLEL_FOR_ENABLED()) {
     Kokkos::fence();
+  }
+  if(nullptr != endForCallee) {
     (*endForCallee)(kernelID);
+  }
+  if (KOKKOS_END_PARALLEL_FOR_ENABLED()) {
+    KOKKOS_END_PARALLEL_FOR(kernelID);
   }
 }
 
 void beginParallelScan(const std::string& kernelPrefix, const uint32_t devID, uint64_t* kernelID) {
-  if(nullptr != beginScanCallee) {
+  if(nullptr != beginScanCallee || KOKKOS_BEGIN_PARALLEL_SCAN_ENABLED()) {
     Kokkos::fence();
+  }
+  if(nullptr != beginScanCallee) {
     (*beginScanCallee)(kernelPrefix.c_str(), devID, kernelID);
+  }
+  if (KOKKOS_BEGIN_PARALLEL_SCAN_ENABLED()) {
+    KOKKOS_BEGIN_PARALLEL_SCAN(kernelPrefix.c_str(), devID, kernelID);
   }
 }
 
 void endParallelScan(const uint64_t kernelID) {
-  if(nullptr != endScanCallee) {
+  if(nullptr != endScanCallee || KOKKOS_END_PARALLEL_SCAN_ENABLED()) {
     Kokkos::fence();
+  }
+  if(nullptr != endScanCallee) {
     (*endScanCallee)(kernelID);
+  }
+  if (KOKKOS_END_PARALLEL_SCAN_ENABLED()) {
+    KOKKOS_END_PARALLEL_SCAN(kernelID);
   }
 }
 
 void beginParallelReduce(const std::string& kernelPrefix, const uint32_t devID, uint64_t* kernelID) {
-  if(nullptr != beginReduceCallee) {
+  if(nullptr != beginReduceCallee || KOKKOS_BEGIN_PARALLEL_REDUCE_ENABLED()) {
     Kokkos::fence();
+  }
+  if(nullptr != beginReduceCallee) {
     (*beginReduceCallee)(kernelPrefix.c_str(), devID, kernelID);
+  }
+  if (KOKKOS_BEGIN_PARALLEL_REDUCE_ENABLED()) {
+    KOKKOS_BEGIN_PARALLEL_REDUCE(kernelPrefix.c_str(), devID, kernelID);
   }
 }
 
 void endParallelReduce(const uint64_t kernelID) {
-  if(nullptr != endReduceCallee) {
+  if(nullptr != endReduceCallee || KOKKOS_END_PARALLEL_REDUCE_ENABLED()) {
     Kokkos::fence();
+  }
+  if(nullptr != endReduceCallee) {
     (*endReduceCallee)(kernelID);
+  }
+  if (KOKKOS_END_PARALLEL_REDUCE_ENABLED()) {
+    KOKKOS_END_PARALLEL_REDUCE(kernelID);
   }
 }
 
 
 void pushRegion(const std::string& kName) {
-  if( nullptr != pushRegionCallee ) {
+  if( nullptr != pushRegionCallee || KOKKOS_PUSH_PROFILE_REGION_ENABLED()) {
     Kokkos::fence();
+  }
+  if( nullptr != pushRegionCallee ) {
     (*pushRegionCallee)(kName.c_str());
+  }
+  if (KOKKOS_PUSH_PROFILE_REGION_ENABLED()) {
+    KOKKOS_PUSH_PROFILE_REGION(kName.c_str());
   }
 }
 
 void popRegion() {
-  if( nullptr != popRegionCallee ) {
+  if( nullptr != popRegionCallee || KOKKOS_POP_PROFILE_REGION_ENABLED()) {
     Kokkos::fence();
+  }
+  if( nullptr != popRegionCallee ) {
     (*popRegionCallee)();
+  }
+  if (KOKKOS_POP_PROFILE_REGION_ENABLED()) {
+    KOKKOS_POP_PROFILE_REGION();
   }
 }
 
@@ -146,11 +191,17 @@ void allocateData(const SpaceHandle space, const std::string label, const void* 
   if(nullptr != allocateDataCallee) {
     (*allocateDataCallee)(space,label.c_str(),ptr,size);
   }
+  if (KOKKOS_ALLOCATE_DATA_ENABLED()) {
+    KOKKOS_ALLOCATE_DATA(space,label.c_str(),ptr,size);
+  }
 }
 
 void deallocateData(const SpaceHandle space, const std::string label, const void* ptr, const uint64_t size) {
   if(nullptr != deallocateDataCallee) {
     (*deallocateDataCallee)(space,label.c_str(),ptr,size);
+  }
+  if (KOKKOS_DEALLOCATE_DATA_ENABLED()) {
+    KOKKOS_DEALLOCATE_DATA(space,label.c_str(),ptr,size);
   }
 }
 
@@ -162,11 +213,19 @@ void beginDeepCopy(const SpaceHandle dst_space, const std::string dst_label, con
                       src_space, src_label.c_str(), src_ptr,
                       size);
   }
+  if (KOKKOS_BEGIN_DEEP_COPY_ENABLED()) {
+    KOKKOS_BEGIN_DEEP_COPY(dst_space, dst_label.c_str(), dst_ptr,
+                      src_space, src_label.c_str(), src_ptr,
+                      size);
+  }
 }
 
 void endDeepCopy() {
   if(nullptr != endDeepCopyCallee) {
     (*endDeepCopyCallee)();
+  }
+  if (KOKKOS_END_DEEP_COPY_ENABLED()) {
+    KOKKOS_END_DEEP_COPY();
   }
 }
 
@@ -175,11 +234,17 @@ void createProfileSection(const std::string& sectionName, uint32_t* secID) {
 	if(nullptr != createSectionCallee) {
 		(*createSectionCallee)(sectionName.c_str(), secID);
 	}
+	if (KOKKOS_CREATE_PROFILE_SECTION_ENABLED()) {
+	  KOKKOS_CREATE_PROFILE_SECTION(sectionName.c_str(), secID);
+	}
 }
 
 void startSection(const uint32_t secID) {
 	if(nullptr != startSectionCallee) {
 		(*startSectionCallee)(secID);
+	}
+	if (KOKKOS_START_PROFILE_SECTION_ENABLED()) {
+	  KOKKOS_START_PROFILE_SECTION(secID);
 	}
 }
 
@@ -187,17 +252,26 @@ void stopSection(const uint32_t secID) {
 	if(nullptr != stopSectionCallee) {
 		(*stopSectionCallee)(secID);
 	}
+	if (KOKKOS_STOP_PROFILE_SECTION_ENABLED()) {
+	  KOKKOS_STOP_PROFILE_SECTION(secID);
+	}
 }
 
 void destroyProfileSection(const uint32_t secID) {
 	if(nullptr != destroySectionCallee) {
 		(*destroySectionCallee)(secID);
 	}
+	if (KOKKOS_DESTROY_PROFILE_SECTION_ENABLED()) {
+	  KOKKOS_DESTROY_PROFILE_SECTION(secID);
+	}
 }
 
 void markEvent(const std::string& eventName) {
 	if(nullptr != profileEventCallee) {
 		(*profileEventCallee)(eventName.c_str());
+	}
+	if (KOKKOS_PROFILE_EVENT_ENABLED()) {
+	  KOKKOS_PROFILE_EVENT(eventName.c_str());
 	}
 }
 
